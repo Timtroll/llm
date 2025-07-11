@@ -13,12 +13,12 @@ app = FastAPI()
 MODELS_CONFIG = {
     "llama-7b": {
         "path": "/llama.cpp/models/llama-7b.Q4_0.gguf",
-        "default_tokens": 128,
+        "default_tokens": 256,
         "default_temp": 0.7
     },
     "model-q4": {
         "path": "/llama.cpp/models/model-q4_K.gguf",
-        "default_tokens": 128,
+        "default_tokens": 256,
         "default_temp": 0.7
     }
 }
