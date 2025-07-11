@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Стили для полосы прокрутки */
+.chat-container {
+  scrollbar-width: auto; /* Для Firefox */
+  scrollbar-color: #4b5563 #1f2937; /* Цвет ползунка и трека */
+}
+
+/* Кастомизация полосы прокрутки для WebKit-браузеров (Chrome, Safari) */
+.chat-container::-webkit-scrollbar {
+  width: 12px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+  background: #1f2937; /* Цвет трека */
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+  background-color: #4b5563; /* Цвет ползунка */
+  border-radius: 6px;
+  border: 3px solid #1f2937; /* Обводка для отступа */
+}
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280; /* Цвет ползунка при наведении */
+}
