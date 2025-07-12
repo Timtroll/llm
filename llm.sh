@@ -66,9 +66,9 @@ parse_args() {
     export REBUILD STOP
 }
 
-# Создание и проверка рабочей директории
+# Получение текущей директории
 setup_work_dir() {
-    WORK_DIR="${WORK_DIR:-/home/troll/sites/llm}"
+    WORK_DIR="${WORK_DIR:-$(pwd)}"
     echo "Создание директории: $WORK_DIR"
     if ! mkdir -p "$WORK_DIR"; then
         echo -e "${RED}Ошибка: Не удалось создать $WORK_DIR${RESET}"

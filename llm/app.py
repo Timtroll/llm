@@ -51,6 +51,12 @@ def extract_last_assistant_response(full_prompt: str, raw_output: str) -> str:
     else:
         return response 
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/generate")
 async def generate_text(prompt: dict):
     if "text" not in prompt:
