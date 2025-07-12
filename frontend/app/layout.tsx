@@ -5,7 +5,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'LLM Chat App',
-  description: 'A modern chat interface powered by Next.js',
+  description: 'Частная нейронка',
 };
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={`${inter.className} bg-gray-900 text-white`}>{children}</body>
+      <body className={`${inter.className} bg-white text-text-black`}>{children}</body>
     </html>
   );
 }
