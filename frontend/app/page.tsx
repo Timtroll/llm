@@ -24,7 +24,7 @@ export default function Home() {
     model: 'model-q4',
   });
 
-  const availableModels = ['model-q4', 'llama-7b'];
+  const availableModels = ['model-q4', 'gpt-4o', 'llama-7b'];
 
   const sendMessage = async (reset = false) => {
     if (!input.trim()) return;
@@ -35,7 +35,8 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('http://spamh:5555/generate', {
+    //   const res = await fetch('http://spamh:5555/generate', {
+      const res = await fetch('/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

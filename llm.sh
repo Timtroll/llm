@@ -85,7 +85,9 @@ setup_work_dir() {
 download_models() {
     cd "$WORK_DIR" || exit 1
     MODELS=(
-        "llama-7b.Q4_0.gguf https://huggingface.co/TheBloke/LLaMA-7B-GGUF/resolve/main/llama-7b.Q4_0.gguf"
+        "grock-3.gguf https://huggingface.co/mradermacher/Grok-3-reasoning-gemma3-4B-distilled-HF-GGUF/resolve/main/Grok-3-reasoning-gemma3-4B-distilled-HF.Q8_0.gguf?download=true"
+        "gpt-4o.gguf https://huggingface.co/mradermacher/oh-dcft-v3.1-gpt-4o-mini-GGUF?show_file_info=oh-dcft-v3.1-gpt-4o-mini.Q2_K.gguf"
+        # "llama-7b.Q4_0.gguf https://huggingface.co/TheBloke/LLaMA-7B-GGUF/resolve/main/llama-7b.Q4_0.gguf"
         "model-q4_K.gguf https://huggingface.co/IlyaGusev/saiga_llama3_8b_gguf/resolve/main/model-q4_K.gguf"
     )
 

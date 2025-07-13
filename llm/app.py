@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import subprocess
 import logging
 import os
+import glob
+from datetime import datetime
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,6 +58,75 @@ def extract_last_assistant_response(full_prompt: str, raw_output: str) -> str:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/models")
+async def list_models():
+    model_dir = "/llama.cpp/models/"
+    try:
+        # Поиск всех файлов *.gguf в директории
+        model_files = glob.glob(os.path.join(model_dir, "*.gguf"))
+        # models = []
+        models = {}
+
+        main_path = next(
+            (p for p in [
+                "/llama.cpp/build/bin/llama-cli",
+                "/llama.cpp/build/llama-cli",
+                "/llama.cpp/build/bin/main",
+                "/llama.cpp/build/main"
+            ] if os.path.isfile(p)), None
+        )
+
+        for file_path in model_files:
+            # Извлечение имени файла без пути и расширения
+            model_name = os.path.splitext(os.path.basename(file_path))[0]
+            
+            # Получение размера файла
+            file_size = os.path.getsize(file_path) / (1024 * 1024)  # Размер в МБ
+            
+            # Получение даты модификации
+            mod_time = os.path.getmtime(file_path)
+            mod_date = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Попытка получить дополнительную информацию о модели
+            models[model_name] = {
+                "name": model_name,
+                "path": file_path,
+                "size": round(file_size, 2),
+                "modified": mod_date,
+                "version": "unknown",
+                "parameters": "unknown",
+                "architecture": "unknown",
+                "default_tokens": 128,
+                "default_temp": 0.7
+            }
+
+            if main_path:
+                try:
+                    # Попытка получить версию и дополнительные метаданные
+                    command = [main_path, "-m", file_path, "--verbose"]
+                    process = subprocess.run(command, capture_output=True, text=True, timeout=15)
+                    if process.returncode == 0:
+                        output = process.stdout.strip()
+                        # Пытаемся извлечь версию, параметры и архитектуру
+                        for line in output.splitlines():
+                            if "version" in line.lower():
+                                model_info["version"] = line.split(":")[-1].strip()
+                            if "parameters" in line.lower():
+                                model_info["parameters"] = line.split(":")[-1].strip()
+                            if "architecture" in line.lower():
+                                model_info["architecture"] = line.split(":")[-1].strip()
+                except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+                    logger.warning(f"Не удалось получить метаданные для {model_name}: {str(e)}")
+
+            # models.append(model_info)
+
+        # return {"models": models}
+        return models
+    except Exception as e:
+        logger.error(f"Ошибка при поиске моделей: {str(e)}")
+        return {"error": f"Ошибка при поиске моделей: {str(e)}"}
 
 
 @app.post("/generate")

@@ -2,6 +2,7 @@ FROM ubuntu:22.04
 
 # Установка зависимостей с очисткой кеша в одном слое
 RUN apt-get update && apt-get install -y \
+    curl \
     build-essential \
     cmake \
     git \
