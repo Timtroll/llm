@@ -207,7 +207,7 @@ async def generate_text(prompt: dict):
             return {"error": f"Ошибка выполнения команды: {process.stderr}"}
 
         raw_response = process.stdout.strip()
-        logger.debug(f"Сырой ответ модели:\n{raw_response}")
+        logger.info(f"Сырой ответ модели:\n{raw_response}")
         logger.info("Генерация текста успешна")
 
         clean_response = extract_last_assistant_response(full_prompt, raw_response)
