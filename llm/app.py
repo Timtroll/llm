@@ -1,3 +1,4 @@
+from unittest.util import strclass
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
@@ -5,7 +6,9 @@ import logging
 import os
 import glob
 from datetime import datetime
-
+from typing import Dict, List, Any
+import json
+import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,24 +39,23 @@ MODELS_CONFIG = {
 HISTORY = {}
 
 
-def extract_last_assistant_response(full_prompt: str, raw_output: str) -> str:
-    """
-    Из ответа модели убираем всё, что уже было отправлено как prompt,
-    и возвращает только последний абзац (разделитель — \n\n).
-    """
-    if raw_output.startswith(full_prompt):
-        response = raw_output[len(full_prompt):].strip()
-    else:
-        response = raw_output.strip()
-    response = response.replace("> EOF by user", "").strip()
+# def extract_last_assistant_response(full_prompt: str, raw_output: str) -> str:
+#     """
+#     Из ответа модели убираем всё, что уже было отправлено как prompt,
+#     и возвращает только последний абзац (разделитель — \n\n).
+#     """
+#     if raw_output.startswith(full_prompt):
+#         response = raw_output[len(full_prompt):].strip()
+#     else:
+#         response = raw_output.strip()
+#     response = response.replace("> EOF by user", "").strip()
 
-    # Разбиваем на абзацы
-    paragraphs = [p.strip() for p in response.split("\n\n") if p.strip()]
-    if paragraphs:
-        return paragraphs[-1]
-    else:
-        return response 
-
+#     # Разбиваем на абзацы
+#     paragraphs = [p.strip() for p in response.split("\n\n") if p.strip()]
+#     if paragraphs:
+#         return paragraphs[-1]
+#     else:
+#         return response
 
 @app.get("/health")
 def health():
@@ -130,13 +132,21 @@ async def list_models():
 
 
 @app.post("/generate")
-async def generate_text(prompt: dict):
+async def generate_text(prompt: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Генерирует текст с использованием LLM и возвращает форматированный ответ в формате JSON.
+    
+    Args:
+        prompt: Словарь с параметрами запроса, включая 'text', 'session_id', 'model' и др.
+    
+    Returns:
+        Словарь с историей, ответом модели и параметрами или с ошибкой.
+    """
     if "text" not in prompt:
         logger.error("Поле 'text' отсутствует в запросе")
         return {"error": "Поле 'text' обязательно в запросе"}
 
     session_id = prompt.get("session_id", "default")
-
     if prompt.get("reset", False):
         HISTORY.pop(session_id, None)
 
@@ -153,42 +163,49 @@ async def generate_text(prompt: dict):
     repeat_penalty = prompt.get("repeat_penalty")
     seed = prompt.get("seed")
 
+    # Поиск исполняемого файла
     main_path_candidates = [
         "/llama.cpp/build/bin/llama-cli",
         "/llama.cpp/build/llama-cli",
         "/llama.cpp/build/bin/main",
         "/llama.cpp/build/main"
     ]
-
     main_path = next((p for p in main_path_candidates if os.path.isfile(p)), None)
-
     if not main_path:
         logger.error("Исполняемый файл не найден")
         return {"error": "Исполняемый файл (llama-cli или main) не найден"}
 
-    # Собираем историю
-    history_messages = HISTORY.get(session_id, [])
-    current_user_input = prompt["text"]
+    # Формирование истории
+    history_messages: List[Dict[str, str]] = HISTORY.get(session_id, [])
+    current_user_input = prompt["text"] + "\n"
     history_messages.append({"role": "user", "content": current_user_input})
 
-    # Промпт для модели
+
+    # Формирование промпта для модели
     russian_instruction = (
-        "Ты — русскоязычный помощник. Всегда отвечай только на русском языке, грамотно и понятно.\n\n"
+        "Ты — русскоязычный помощник. Всегда отвечай только на русском языке, грамотно и понятно.\n"
+        # "Отвечай строго в формате JSON: {\"assistant\": \"текст ответа\"}\n\n"
     )
-    full_prompt = russian_instruction
+
+    # Добавляем инструкцию только если история пуста (начало беседы)
+    full_prompt = russian_instruction if not history_messages else ""
     for msg in history_messages:
         if msg["role"] == "user":
-            full_prompt += f"Пользователь: {msg['content']}\n"
-        elif msg["role"] == "assistant":
-            full_prompt += f"Помощник: {msg['content']}\n"
+            full_prompt += f"user: {msg['content']}\n"
+        # elif msg["role"] == "assistant":
+        #     full_prompt += f"assistant: {msg['content']}\n"
 
+    # Формирование команды для запуска модели
     command = [
         main_path,
         "-m", model_config["path"],
         "-p", full_prompt,
         "-n", str(n_tokens),
-        "--temp", str(temperature)
+        "--temp", str(temperature),
+        "-cnv",  # Включаем режим диалога
+        # "-chat-template", "chatml"  # Используем шаблон ChatML для структурированного диалога
     ]
+
     if top_p is not None:
         command.extend(["--top-p", str(top_p)])
     if top_k is not None:
@@ -206,15 +223,17 @@ async def generate_text(prompt: dict):
             logger.error(f"Ошибка выполнения команды: {process.stderr}")
             return {"error": f"Ошибка выполнения команды: {process.stderr}"}
 
-        raw_response = process.stdout.strip()
-        logger.info(f"Сырой ответ модели:\n{raw_response}")
-        logger.info("Генерация текста успешна")
+        raw_response = process.stdout
+        logger.info(f"Сырой ответ модели:\n={raw_response}=")
 
-        clean_response = extract_last_assistant_response(full_prompt, raw_response)
-        logger.info(f"Чистый ответ ассистента: {clean_response}")
+        # Извлечение ответа ассистента
+        clean_response = extract_assistant_response(raw_response)
+        logger.info(f"Чистый ответ модели:\n{clean_response}")
 
+        # Добавление ответа в историю
         history_messages.append({"role": "assistant", "content": clean_response})
         HISTORY[session_id] = history_messages
+
 
         return {
             "history": history_messages,
@@ -237,3 +256,52 @@ async def generate_text(prompt: dict):
     except Exception as e:
         logger.error(f"Ошибка при генерации: {str(e)}")
         return {"error": f"Ошибка при генерации: {str(e)}"}
+
+def extract_assistant_response(raw_response: str) -> strclass:
+    """
+    Извлекает ответ ассистента из raw_response.
+    Ищет текст между "assistant" и "> EOF by user",
+    удаляя лидирующие и конечные пробелы и переводы строк.
+    """
+    result = ""
+
+    # Найти блок между "assistant" и "> EOF by user"
+    match = re.search(r"assistant\s*(.*?)\s*> EOF by user", raw_response, re.DOTALL | re.IGNORECASE)
+    if match:
+        result = match.group(1).strip()
+
+    return result
+
+
+# def extract_assistant_response(raw_response: str) -> Dict[str, Any]:
+#     """
+#     Извлекает ответ ассистента из сырого вывода модели, ожидая JSON-формат.
+    
+#     Args:
+#         raw_response: Сырой вывод модели.
+    
+#     Returns:
+#         Словарь с ключом 'assistant' или словарь с ошибкой.
+#     """
+#     try:
+#         # Проверяем, является ли вывод валидным JSON
+#         response_data = json.loads(raw_response.strip())
+#         if not isinstance(response_data, dict) or "assistant" not in response_data:
+#             logger.error("Ответ модели не содержит ключа 'assistant' или не является словарем")
+#             return {"error": "Некорректный формат ответа модели"}
+#         return response_data
+#     except json.JSONDecodeError:
+#         # Если JSON невалиден, пытаемся найти JSON-подобную строку
+#         logger.warning("Не удалось разобрать ответ как JSON, попытка извлечь вручную")
+#         # Ищем JSON-подобную структуру
+#         json_match = re.search(r'\{[\s\S]*"assistant":\s*"[^"]*"[\s\S]*\}', raw_response)
+#         if json_match:
+#             try:
+#                 response_data = json.loads(json_match.group(0))
+#                 if "assistant" in response_data:
+#                     return response_data
+#             except json.JSONDecodeError:
+#                 pass
+#         # Если не удалось извлечь JSON, возвращаем текст как есть
+#         logger.error("Не удалось извлечь JSON, возвращаем сырой текст")
+#         return {"assistant": raw_response.strip()}

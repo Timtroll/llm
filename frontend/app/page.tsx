@@ -50,7 +50,8 @@ export default function Home() {
         ...prev,
         { role: 'assistant', content: data.response || `Ошибка: ${data.error}` },
       ]);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: 'Ошибка при запросе' },
