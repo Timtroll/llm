@@ -9,6 +9,9 @@ from datetime import datetime
 from typing import Dict, List, Any
 import json
 import re
+import httpx
+
+SEARCH_ENABLED = True  # можно выключить при необходимости
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,23 +42,31 @@ MODELS_CONFIG = {
 HISTORY = {}
 
 
-# def extract_last_assistant_response(full_prompt: str, raw_output: str) -> str:
-#     """
-#     Из ответа модели убираем всё, что уже было отправлено как prompt,
-#     и возвращает только последний абзац (разделитель — \n\n).
-#     """
-#     if raw_output.startswith(full_prompt):
-#         response = raw_output[len(full_prompt):].strip()
-#     else:
-#         response = raw_output.strip()
-#     response = response.replace("> EOF by user", "").strip()
+async def search_internet(query: str) -> str:
+    """
+    Выполняет поиск в интернете (используя DuckDuckGo API или аналогичный сервис)
+    и возвращает краткий результат.
+    """
+    if not SEARCH_ENABLED:
+        return "Поиск в интернете отключен."
 
-#     # Разбиваем на абзацы
-#     paragraphs = [p.strip() for p in response.split("\n\n") if p.strip()]
-#     if paragraphs:
-#         return paragraphs[-1]
-#     else:
-#         return response
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://api.duckduckgo.com/",
+                params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
+            )
+            data = resp.json()
+            abstract = data.get("Abstract")
+            if abstract:
+                return abstract
+            related = data.get("RelatedTopics", [])
+            if related:
+                return related[0].get("Text", "Не найдено подробностей.")
+            return "По запросу ничего не найдено."
+    except Exception as e:
+        logger.error(f"Ошибка поиска в интернете: {e}")
+        return "Ошибка при попытке поиска в интернете."
 
 @app.get("/health")
 def health():
@@ -150,6 +161,21 @@ async def generate_text(prompt: Dict[str, Any]) -> Dict[str, Any]:
     if prompt.get("reset", False):
         HISTORY.pop(session_id, None)
 
+    text = prompt["text"]
+    use_search = prompt.get("use_search", False)
+
+    internet_info = ""
+    if use_search:
+        logger.info(f"Активирован поиск в интернете для: {text}")
+        internet_info = await search_internet(text)
+
+    # Вставим найденную информацию в промпт
+    if internet_info:
+        text += f"\n\nСправочная информация из интернета: {internet_info}"
+
+    # Передаем дальше в твой текущий пайплайн генерации (оставим как есть)
+    prompt["text"] = text
+
     model_name = prompt.get("model", list(MODELS_CONFIG.keys())[0])
     if model_name not in MODELS_CONFIG:
         logger.error(f"Модель '{model_name}' не найдена в конфигурации")
@@ -183,7 +209,7 @@ async def generate_text(prompt: Dict[str, Any]) -> Dict[str, Any]:
 
     # Формирование промпта для модели
     russian_instruction = (
-        "Ты — русскоязычный помощник. Всегда отвечай только на русском языке, грамотно и понятно.\n"
+        "Ты — русскоязычный помощник. Всегда отвечай только на русском языке, грамотно и понятно. Ответы давай в формате Markdown.\n"
         # "Отвечай строго в формате JSON: {\"assistant\": \"текст ответа\"}\n\n"
     )
 
@@ -272,36 +298,3 @@ def extract_assistant_response(raw_response: str) -> strclass:
 
     return result
 
-
-# def extract_assistant_response(raw_response: str) -> Dict[str, Any]:
-#     """
-#     Извлекает ответ ассистента из сырого вывода модели, ожидая JSON-формат.
-    
-#     Args:
-#         raw_response: Сырой вывод модели.
-    
-#     Returns:
-#         Словарь с ключом 'assistant' или словарь с ошибкой.
-#     """
-#     try:
-#         # Проверяем, является ли вывод валидным JSON
-#         response_data = json.loads(raw_response.strip())
-#         if not isinstance(response_data, dict) or "assistant" not in response_data:
-#             logger.error("Ответ модели не содержит ключа 'assistant' или не является словарем")
-#             return {"error": "Некорректный формат ответа модели"}
-#         return response_data
-#     except json.JSONDecodeError:
-#         # Если JSON невалиден, пытаемся найти JSON-подобную строку
-#         logger.warning("Не удалось разобрать ответ как JSON, попытка извлечь вручную")
-#         # Ищем JSON-подобную структуру
-#         json_match = re.search(r'\{[\s\S]*"assistant":\s*"[^"]*"[\s\S]*\}', raw_response)
-#         if json_match:
-#             try:
-#                 response_data = json.loads(json_match.group(0))
-#                 if "assistant" in response_data:
-#                     return response_data
-#             except json.JSONDecodeError:
-#                 pass
-#         # Если не удалось извлечь JSON, возвращаем текст как есть
-#         logger.error("Не удалось извлечь JSON, возвращаем сырой текст")
-#         return {"assistant": raw_response.strip()}

@@ -21,7 +21,7 @@ RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
     make -j$(nproc)
 
 # Установка Python-библиотек
-RUN pip3 install fastapi uvicorn
+RUN pip3 install fastapi uvicorn httpx
 
 # Создание директории для моделей (будет использоваться как точка монтирования volume)
 RUN mkdir -p /llama.cpp/models
