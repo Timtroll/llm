@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Settings, Send, X } from 'lucide-react';
+
+import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+import { useAuthToken } from '@/hooks/useAuthToken';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
+
+const Settings = dynamic(() => import('lucide-react').then((mod) => mod.Settings), { ssr: false });
+const Send = dynamic(() => import('lucide-react').then((mod) => mod.Send), { ssr: false });
+const X = dynamic(() => import('lucide-react').then((mod) => mod.X), { ssr: false });
 
 export default function Home() {
   const [messages, setMessages] = useState<
@@ -13,6 +22,21 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const isUserScrolling = useRef(false);
+  const router = useRouter();
+
+  const { getToken, clearToken } = useAuthToken();
+  const [token, setToken] = useState<string | null>(null);
+
+  // Загружаем токен на клиенте
+  useEffect(() => {
+    const tk = getToken();
+    setToken(tk);
+
+    // Если токена нет — редиректим
+    if (tk === null) {
+      router.push('/login');
+    }
+  }, [getToken, router]);
 
   const [parameters, setParameters] = useState({
     n_tokens: 2048,
@@ -26,6 +50,13 @@ export default function Home() {
 
   const availableModels = ['model-q4', 'gpt-4o', 'llama-7b'];
 
+  // Проверка авторизации
+  useEffect(() => {
+    if (token === null) {
+      router.push('/login');
+    }
+  }, [token, router]);
+
   const sendMessage = async (reset = false) => {
     if (!input.trim()) return;
     const prompt = input.trim();
@@ -35,27 +66,29 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: prompt,
-          session_id: sessionId,
-          reset,
-          ...parameters,
-        }),
-      });
-      const data = await res.json();
+      const data = await fetchWithAuth(
+        '/generate',
+        token!,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: prompt,
+            session_id: sessionId,
+            reset,
+            ...parameters,
+          }),
+        }
+      );
+
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: data.response || `Ошибка: ${data.error}` },
       ]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Ошибка при запросе' },
-      ]);
+      clearToken();
+      router.push('/login');
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +105,7 @@ export default function Home() {
     setSidebarOpen(false);
   };
 
-  // Обработка прокрутки
+  // Прокрутка
   useEffect(() => {
     const chatContainer = chatRef.current;
     if (!chatContainer) return;
@@ -95,6 +128,10 @@ export default function Home() {
       behavior: 'smooth',
     });
   }, [messages, isLoading]);
+
+  if (!token) {
+    return null; // Пока проверка или редирект
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-black">

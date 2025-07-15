@@ -1,5 +1,7 @@
 from unittest.util import strclass
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Form
+from fastapi.responses import JSONResponse
+
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
 import logging
@@ -10,6 +12,7 @@ from typing import Dict, List, Any
 import json
 import re
 import httpx
+
 
 SEARCH_ENABLED = True  # можно выключить при необходимости
 
@@ -71,6 +74,14 @@ async def search_internet(query: str) -> str:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/api/auth/login")
+async def login(username: str = Form(...), password: str = Form(...)):
+    if username == "admin" and password == "secret":
+        token = "c8f3e0e7f2c49aa647d944fa19b7a81e5fbd49e6c534a3a8c22ef13ccf7bd189"
+        return JSONResponse({"token": token})
+    raise HTTPException(status_code=401, detail="Неверные данные")
 
 
 @app.get("/models")

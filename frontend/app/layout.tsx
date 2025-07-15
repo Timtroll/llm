@@ -15,13 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={`${inter.className} bg-white text-text-black`}>{children}</body>
+      <body className={`${inter.className} bg-white text-black`}>{children}</body>
     </html>
   );
 }

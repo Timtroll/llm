@@ -1,7 +1,7 @@
 services:
   llm:
     build:
-      context: ./llm
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "5555:5555"
@@ -14,6 +14,9 @@ services:
       retries: 3
       start_period: 10s
     container_name: llm-container
+    restart: unless-stopped
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
 
   nextjs:
     build:
@@ -21,11 +24,21 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://llm:5555
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:5555
       - PORT=5000
+      - JWT_SECRET=${JWT_SECRET}
+    env_file:
+      - ./frontend/.env.local
     depends_on:
-      - llm
+      llm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5000"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    container_name: nextjs-container
+    restart: unless-stopped
