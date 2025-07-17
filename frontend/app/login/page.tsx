@@ -1,49 +1,55 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthToken } from '@/hooks/useAuthToken';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+const LoginPage = () => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const { saveToken } = useAuthToken();
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("https://llm.lmt.su/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Ошибка входа');
+      if (!response.ok) {
+        throw new Error("Login failed");
       }
 
-      saveToken(data.token);
-      router.push('/');
-    } catch (err: any) {
-      setError(err.message);
+      const data = await response.json();
+      const { token, user } = data;
+
+      localStorage.setItem(
+        "authToken",
+        JSON.stringify({
+          token,
+          username: user.username,
+        })
+      );
+
+      router.push("/main");
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("Неверные учетные данные или проблемы с сервером");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
-        onSubmit={handleSubmit}
+        onSubmit={handleLogin}
         className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md space-y-4"
       >
         <h1 className="text-2xl font-bold text-center">Вход</h1>
@@ -52,10 +58,10 @@ export default function LoginPage() {
 
         <input
           type="text"
-          placeholder="Логин"
+          placeholder="Имя пользователя"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full border border-gray-300 rounded px-4 py-2"
+          className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-700"
           required
         />
 
@@ -64,18 +70,20 @@ export default function LoginPage() {
           placeholder="Пароль"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-gray-300 rounded px-4 py-2"
+          className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-700"
           required
         />
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded disabled:opacity-50"
+          disabled={loading || !username || !password}
+          className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded disabled:opacity-50 transition-colors"
         >
-          {loading ? 'Входим…' : 'Войти'}
+          {loading ? "Входим…" : "Войти"}
         </button>
       </form>
     </div>
   );
-}
+};
+
+export default LoginPage;

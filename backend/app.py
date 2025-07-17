@@ -1,8 +1,8 @@
 from unittest.util import strclass
 from fastapi import FastAPI, HTTPException, Form
 from fastapi.responses import JSONResponse
-
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel  # Добавляем импорт Pydantic
 import subprocess
 import logging
 import os
@@ -28,6 +28,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Определяем модель для валидации JSON-запроса
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 MODELS_CONFIG = {
     "llama-7b": {
@@ -71,20 +76,29 @@ async def search_internet(query: str) -> str:
         logger.error(f"Ошибка поиска в интернете: {e}")
         return "Ошибка при попытке поиска в интернете."
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok"}
 
 
-@app.post("/api/auth/login")
-async def login(username: str = Form(...), password: str = Form(...)):
-    if username == "admin" and password == "secret":
-        token = "c8f3e0e7f2c49aa647d944fa19b7a81e5fbd49e6c534a3a8c22ef13ccf7bd189"
-        return JSONResponse({"token": token})
+# @app.post("/login")
+# async def login(username: str = Form(...), password: str = Form(...)):
+#     if username == "admin" and password == "secret":
+#         token = "c8f3e0e7f2c49aa647d944fa19b7a81e5fbd49e6c534a3a8c22ef13ccf7bd189"
+#         return JSONResponse({"token": token})
+#     raise HTTPException(status_code=401, detail="Неверные данные")
+
+@app.post("/api/login")
+async def login(request: LoginRequest):
+    if request.username == "admin" and request.password == "secret":
+        return {
+            "token": "c8f3e0e7f2c49aa647d944fa19b7a81e5fbd49e6c534a3a8c22ef13ccf7bd189",
+            "user": {"username": request.username}
+        }
     raise HTTPException(status_code=401, detail="Неверные данные")
 
 
-@app.get("/models")
+@app.get("/api/models")
 async def list_models():
     model_dir = "/llama.cpp/models/"
     try:
@@ -153,7 +167,7 @@ async def list_models():
         return {"error": f"Ошибка при поиске моделей: {str(e)}"}
 
 
-@app.post("/generate")
+@app.post("/api/generate")
 async def generate_text(prompt: Dict[str, Any]) -> Dict[str, Any]:
     """
     Генерирует текст с использованием LLM и возвращает форматированный ответ в формате JSON.

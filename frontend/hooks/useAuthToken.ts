@@ -1,22 +1,16 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
 
-export const useAuthToken = () => {
-  const router = useRouter();
+export const useAuthToken = (): string | null => {
+  const [token, setToken] = useState<string | null>(null);
 
-  const saveToken = (token: string) => {
-    localStorage.setItem('token', token);
-  };
+  useEffect(() => {
+    const savedToken = localStorage.getItem("authToken");
+    if (savedToken) {
+      setToken(savedToken);
+    }
+  }, []);
 
-  const getToken = () => {
-    return localStorage.getItem('token');
-  };
-
-  const clearToken = () => {
-    localStorage.removeItem('token');
-    router.push('/login');
-  };
-
-  return { saveToken, getToken, clearToken };
+  return token;
 };

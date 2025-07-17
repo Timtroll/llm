@@ -331,7 +331,7 @@ check_api_availability() {
 # Вывод инструкций
 print_instructions() {
     echo -e "\nДля тестирования API выполните:"
-    echo "curl -X POST http://localhost:5555/generate -H 'Content-Type: application/json' -H 'Authorization: Bearer <your-jwt-token>' -d '{\"text\": \"Привет, как дела?\", \"session_id\": \"default\"}'"
+    echo "curl -X POST http://localhost:5555/api/generate -H 'Content-Type: application/json' -H 'Authorization: Bearer <your-jwt-token>' -d '{\"text\": \"Привет, как дела?\", \"session_id\": \"default\"}'"
     echo "Для доступа к фронтенду: http://localhost:5000"
     echo "Для проверки логов: docker compose logs"
     echo "Для остановки контейнеров: docker compose stop"
@@ -347,9 +347,9 @@ setup_work_dir
 cd "$WORK_DIR" || exit 1
 
 # setup_env_files
-setup_permissions
+# setup_permissions
 parse_args "$@"
-download_models
+# download_models
 check_containers
 build_and_run_containers
 check_api_availability

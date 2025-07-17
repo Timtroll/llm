@@ -1,11 +1,9 @@
-import { Inter } from 'next/font/google';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css"; // Импорт globals.css (если файл в app/globals.css)
 
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata = {
-  title: 'LLM Chat App',
-  description: 'Частная нейронка',
+export const metadata: Metadata = {
+  title: "Ваше приложение",
+  description: "Приложение с авторизацией",
 };
 
 export default function RootLayout({
@@ -14,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-white text-black`}>{children}</body>
+    <html lang="ru">
+      <body>{children}</body>
     </html>
   );
 }

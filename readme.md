@@ -62,7 +62,7 @@
 ## Тестирование API
 Для тестирования API выполните:
 ```bash
-curl -X POST http://localhost:5555/generate -H 'Content-Type: application/json' -d '{"text": "Привет, как дела?"}'
+curl -X POST http://localhost:5555/api/generate -H 'Content-Type: application/json' -d '{"text": "Привет, как дела?"}'
 ```
 
 ## Логи и отладка

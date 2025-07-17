@@ -21,6 +21,9 @@ RUN npm run build
 # Стадия 2: продакшн
 FROM node:20-alpine AS runner
 
+# Добавим curl
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Копируем только необходимые файлы из builder

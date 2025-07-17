@@ -19,7 +19,6 @@ body {
   scrollbar-color: #4b5563 #1f2937; /* Цвет ползунка и трека */
 }
 
-/* Кастомизация полосы прокрутки для WebKit-браузеров (Chrome, Safari) */
 .chat-container::-webkit-scrollbar {
   width: 12px;
 }
