@@ -1,4 +1,18 @@
-fastapi
-uvicorn
-httpx
-python-multipart
+# Зависимости для FastAPI приложения с EAV для управления пользователями и историей LLM
+
+fastapi  # Фреймворк для создания асинхронного API
+uvicorn  # ASGI сервер для запуска FastAPI приложения
+httpx  # Асинхронный HTTP-клиент для запросов к внешним API (например, поиск в DuckDuckGo)
+python-multipart  # Поддержка FormData (для совместимости, хотя пока не используется)
+pyjwt  # Работа с JWT токенами для аутентификации
+pydantic  # Валидация данных и моделей (зависимость FastAPI, указана явно для контроля версий)
+python-dotenv  # Загрузка переменных окружения из .env файла (например, для SECRET_KEY, REDIS_URL)
+
+redis>=5.0.0    # Клиент для работы с Redis (используется в AsyncEAVWithIndex для хранения данных)
+pytest
+pytest-asyncio
+aioredis
+
+passlib>=1.7.4  # Библиотека для хеширования паролей с использованием bcrypt
+bcrypt>=3.2.0
+argon2-cffi>=21.3.0

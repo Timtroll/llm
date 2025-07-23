@@ -1,4 +1,22 @@
 services:
+  redis:
+    image: redis:7
+    container_name: llm-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - llm_llm-backend
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--bind", "0.0.0.0", "--protected-mode", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   llm:
     build:
       context: ./backend
@@ -13,10 +31,17 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    container_name: llm-back
+    container_name: llm-llm
     restart: unless-stopped
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - llm_llm-backend
+      - default
     develop:
       watch:
         - path: ./backend
@@ -33,8 +58,6 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:5555
       - PORT=5000
       - JWT_SECRET=${JWT_SECRET}
-    env_file:
-      - ./frontend/.env.local
     volumes:
       - ./frontend:/app
       - /app/node_modules # чтобы не затирать node_modules хостовой папкой
@@ -48,9 +71,19 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    container_name: llm-front
+    container_name: llm-nextjs  
     restart: unless-stopped
+    networks:
+      - default
     develop:
       watch:
         - path: ./frontend
           action: rebuild
+
+networks:
+  llm_llm-backend:
+    # internal: true # чтобы скрыть сеть
+  default:
+
+volumes:
+  redis_data:

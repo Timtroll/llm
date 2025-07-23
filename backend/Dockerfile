@@ -29,6 +29,8 @@ RUN echo "Проверка директории для моделей (ожид�
 
 # Копирование приложения
 COPY app.py /app/
+COPY async_eav.py /app/
+COPY test_async_eav.py /app/
 COPY requirements.txt /app/
 
 # Рабочая директория
@@ -42,10 +44,10 @@ EXPOSE 5555
 
 # Healthcheck для мониторинга FastAPI
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl --fail http://localhost:5555/health || exit 1
+    CMD curl --fail http://localhost:5555/api/health || exit 1
 
-# Команда для запуска FastAPI
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5555"]
+# Команда для запуска FastAPI с авторестартом
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5555", "--reload"]
 
 # Примечание: Модели (*.gguf) должны находиться в директории проекта на хосте (например, /home/troll/sites/llm).
 # Монтируйте volume при запуске контейнера, например:
