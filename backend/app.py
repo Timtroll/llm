@@ -6,20 +6,21 @@ import glob
 import json
 import re
 import httpx
-import base64
+# import base64
 
-from fastapi import FastAPI, Request, HTTPException, Depends, Body
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, HTTPException, Depends
+# from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.base import BaseHTTPMiddleware
-from async_eav import AsyncEAVWithIndex
-from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
-import asyncio
-import redis.asyncio as redis
+from typing import Dict, Any
+# import asyncio
+# import redis.asyncio as redis
 from passlib.context import CryptContext
+
+from models import CreateUserRequest, LoginRequest, RegisterRequest, UpdateUserRequest, DeleteUserRequest
+from utils import health
 
 # Секретный ключ для подписи JWT
 SECRET_KEY = "c8f3e0e7f2c49aa647d944fa19b7a81e5fbd49e6c534a3a8c22ef13ccf7bd189"  # Замените на безопасный ключ
@@ -44,9 +45,6 @@ MODELS_CONFIG = {
         "default_temp": 0.7
     }
 }
-
-# Инициализация EAV
-eav = AsyncEAVWithIndex(redis_url="redis://redis:6379/0")
 
 # Инициализация хеширования паролей
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
@@ -76,7 +74,7 @@ app.add_middleware(
 )
 
 # OAuth2 схема для извлечения токена
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/user/login")
 
 
 # Генерация JWT
@@ -87,7 +85,7 @@ def create_access_token(data: dict):
         "exp": expire,
         "iat": datetime.utcnow(),
         "iss": "your-app-name",
-        "roles": data.get("roles", ["user"]),
+        "role": data.get("role", "user"),
         "custom_field": "value"
     })
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -105,21 +103,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         user_data = await eav.get_all_attributes(f"user:{username}")
         if not user_data:
             raise HTTPException(status_code=401, detail="Пользователь не найден")
-        return {"username": username, "roles": user_data.get("roles", ["user"])}
+        return {"username": username, "role": user_data.get("role", "user")}
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Недействительный токен")
-
-
-# Модель для валидации запросов
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    roles: List[str] = ["user"]
 
 
 async def search_internet(query: str) -> str:
@@ -146,8 +132,8 @@ async def search_internet(query: str) -> str:
 
 # Маршруты
 @app.get("/api/health")
-def health():
-    return {"status": "ok"}
+def health_check():
+    return health()
 
 ########################### START роуты для работы с пользователями
 # @app.post("/api/register")
@@ -171,126 +157,46 @@ def health():
 #         "user": {"username": request.username, "roles": request.roles}
 #     }
 
-class CreateUserRequest(BaseModel):
-    username: str
-    password: str
-    roles: list[str] = []
 
+
+from controllers.users import list_users
+from controllers.user import get_user, create_user, update_user, delete_user
 
 @app.get("/api/users")
-# async def list_users(field: str, value: str, current_user: dict = Depends(get_current_user)):
-async def list_users(field: str, value: str, request: Request):
-    logger.info(f"Received GET /api/users with field={field}, value={value}, scheme={request.scope['scheme']}")
-    users = []
-    cursor = b"0"
-    try:
-        while True:
-            logger.info(f"Scanning Redis with cursor={cursor!r}, type={type(cursor)}")
-            cursor, keys = await eav.client.scan(cursor=cursor, match="user:*", count=100)
-            logger.info(f"Received {len(keys)} keys: {keys}")
-            for key in keys:
-                logger.info(f"Fetching attribute {field} for key {key}")
-                attr_value = await eav.client.hget(key, field)
-                logger.info(f"Attribute value: {attr_value}")
-                if attr_value:
-                    try:
-                        parsed = json.loads(attr_value)
-                        logger.info(f"Parsed value: {parsed}")
-                        if isinstance(parsed, list) and value in parsed:
-                            users.append(key.decode().split(":", 1)[1])
-                            logger.info(f"Added user: {key.decode().split(':', 1)[1]} (list match)")
-                        elif parsed == value:
-                            users.append(key.decode().split(":", 1)[1])
-                            logger.info(f"Added user: {key.decode().split(':', 1)[1]} (direct match)")
-                    except json.JSONDecodeError:
-                        if attr_value.decode() == value:
-                            users.append(key.decode().split(":", 1)[1])
-                            logger.info(f"Added user: {key.decode().split(':', 1)[1]} (decoded match)")
-            logger.info(f"Cursor after scan: {cursor!r}, type={type(cursor)}")
-            if cursor == b"0" or cursor == 0 or cursor == "0":
-                logger.info("Finished scanning Redis")
-                break
-    except Exception as e:
-        logger.error(f"Error during Redis scan: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Redis error: {str(e)}")
-    logger.info(f"Returning users: {users}")
-    return {"matched_users": users}
+async def users(field: str, value: str, request: Request):
+    return await list_users(field, value, request)
 
 
 @app.get("/api/user")
-# async def get_user(username: str, current_user: dict = Depends(get_current_user)):
-async def get_user(username: str):
-    user_id = f"user:{username}"
-    user_data = await eav.get_all_attributes(user_id)
-    if not user_data:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    return {
-        "username": username,
-        "roles": json.loads(user_data.get("roles", "[]")),
-        "created_at": user_data.get("created_at")
-    }
-
+async def user(username: str):
+    return await get_user(username)
 
 
 @app.post("/api/user/create")
-# async def create_user(data: CreateUserRequest, current_user: dict = Depends(get_current_user)):
-async def create_user(data: CreateUserRequest):
-    # Проверим, что такого пользователя ещё нет
-    existing = await eav.client.exists(f"user:{data.username}")
-    if existing:
-        raise HTTPException(status_code=400, detail="Пользователь уже существует")
-
-    # Хешируем пароль
-    hashed_password = pwd_context.hash(data.password)
-    await eav.create_entity(
-        f"user:{data.username}",
-        attributes={
-            "username": data.username,
-            "password": hashed_password,
-            "roles": json.dumps(data.roles),
-            "created_at": datetime.utcnow().isoformat()
-        }
-    )
-
-    return {"message": f"Пользователь {data.username} создан"}
-
-
-class UpdateUserRequest(BaseModel):
-    username: str
-    password: str | None = None
-    roles: List[str] | None = None
+async def user_create(data: CreateUserRequest):
+    return await create_user(data)
 
 
 @app.post("/api/user/update")
-async def update_user(data: UpdateUserRequest, current_user: dict = Depends(get_current_user)):
-    user_id = f"user:{data.username}"
-    user_data = await eav.get_all_attributes(user_id)
-    if not user_data:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-
-    if data.password:
-        hashed_password = pwd_context.hash(data.password)
-        await eav.set_attribute(user_id, "password", hashed_password)
-    if data.roles:
-        await eav.set_attribute(user_id, "roles", json.dumps(data.roles))
-    return {"message": "Пользователь обновлён"}
-
-
-class DeleteUserRequest(BaseModel):
-    username: str
+async def user_update(
+    data: UpdateUserRequest,
+    # current_user: dict = Depends(get_current_user)
+):
+    return await update_user(data)
 
 
 @app.post("/api/user/delete")
-async def delete_user(data: DeleteUserRequest, current_user: dict = Depends(get_current_user)):
-    user_id = f"user:{data.username}"
-    await eav.delete_entity(user_id)
-    return {"message": f"Пользователь {data.username} удалён"}
+async def user_delete(
+    data: DeleteUserRequest,
+    # current_user: dict = Depends(get_current_user)
+):
+    return await delete_user(data)
 
 
 ########################### END роуты для работы с пользователями
 
 
-@app.post("/api/login")
+@app.post("/api/user/login")
 async def login(request: LoginRequest):
     user_id = f"user:{request.username}"
     user_data = await eav.get_all_attributes(user_id)
@@ -299,20 +205,23 @@ async def login(request: LoginRequest):
     if not user_data or not pwd_context.verify(request.password, user_data.get("password")):
         raise HTTPException(status_code=401, detail="Неверные данные")
     
-    roles = json.loads(user_data.get("roles", "[]"))
-    token = create_access_token({"sub": request.username, "roles": roles})
+    role = user_data.get("role", "")
+    if not role:
+        raise HTTPException(status_code=401, detail="Нет роли")
+
+    token = create_access_token({"sub": request.username, "role": role})
     await eav.set_attribute(f"token:{token}", "user", request.username)
     await eav.set_attribute(f"token:{token}", "expires", (datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).isoformat())
     
     return {
         "token": token,
-        "user": {"username": request.username, "roles": roles}
+        "user": {"username": request.username, "role": role}
     }
 
 
-@app.get("/api/protected")
-async def protected_route(current_user: dict = Depends(get_current_user)):
-    return {"message": f"Привет, {current_user['username']}!"}
+# @app.get("/api/protected")
+# async def protected_route(current_user: dict = Depends(get_current_user)):
+#     return {"message": f"Привет, {current_user['username']}!"}
 
 
 @app.get("/api/models")

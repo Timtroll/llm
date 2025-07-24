@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 const Settings = dynamic(() => import('lucide-react').then((mod) => mod.Settings), { ssr: false });
 const Send = dynamic(() => import('lucide-react').then((mod) => mod.Send), { ssr: false });
 const X = dynamic(() => import('lucide-react').then((mod) => mod.X), { ssr: false });
+const LogOut = dynamic(() => import('lucide-react').then((mod) => mod.LogOut), { ssr: false });
 
 type AuthData = {
   token: string;
@@ -37,6 +38,11 @@ export default function Home() {
   });
 
   const availableModels = ['model-q4', 'gpt-4o', 'llama-7b'];
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    router.push('/');
+  };
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
@@ -202,12 +208,18 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <span className="text-yellow-500">☭</span> LLM Chat
           </h1>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
               onClick={handleNewSession}
               className="bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               Новая сессия
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg transition-colors"
+            >
+              <LogOut size={20} />
             </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}

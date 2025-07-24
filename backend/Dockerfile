@@ -28,10 +28,14 @@ RUN echo "Проверка директории для моделей (ожид�
     ls -lh /llama.cpp/models/ || echo "Модели будут доступны после монтирования volume"
 
 # Копирование приложения
-COPY app.py /app/
-COPY async_eav.py /app/
-COPY test_async_eav.py /app/
-COPY requirements.txt /app/
+# COPY app.py /app/
+# COPY async_eav.py /app/
+# COPY models.py /app/
+# COPY utils.py /app/
+# COPY test_async_eav.py /app/
+# COPY requirements.txt /app/
+# COPY controllers/ /app/
+COPY . /app/
 
 # Рабочая директория
 WORKDIR /app

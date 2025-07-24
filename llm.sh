@@ -214,7 +214,7 @@ start_service() {
     local service=$1
     log_stage "Запуск сервиса $service"
     echo "Запуск сервиса $service... Комана для ручного запуска:"
-    echo "docker docker compose up --build \"$service\""
+    echo "docker compose up --build \"$service\""
     docker docker compose up --build -d "$service"
     if [ $? -ne 0 ]; then
         echo "Ошибка при запуске сервиса $service"

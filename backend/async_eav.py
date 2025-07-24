@@ -2,7 +2,6 @@
 from typing import Dict, Any, List
 import redis.asyncio as redis
 
-
 class AsyncEAVWithIndex:
     def __init__(self, redis_url: str = "redis://redis:6379/0"):
         """
@@ -23,12 +22,15 @@ class AsyncEAVWithIndex:
         Пример:
             await eav.create_entity("user:123", {"name": "Alice", "age": 30})
         """
-        # await self.delete_entity(entity_id)
         for attr, val in attributes.items():
             await self.set_attribute(entity_id, attr, val)
+            # print(f"entity_id {entity_id}")
+            # print(f"attr {attr}")
+            # print(f"val {val}")
+            # print(f"-----------")
         
-        key = f"{entity_id}"  # Используем правильный ключ с префиксом
-        value = await self.client.hgetall(key)  # Исправлено: hgetall по ключу user:admin
+        # key = f"{entity_id}"  # Используем правильный ключ с префиксом
+        # value = await self.client.hgetall(key)  # Исправлено: hgetall по ключу user:admin
 
 
     async def update_entity(self, entity_id: str, attributes: Dict[str, Any]):
@@ -156,3 +158,6 @@ class AsyncEAVWithIndex:
         Внутренний метод: формирование ключа индекса по атрибуту и значению.
         """
         return f"index:{attribute}:{value}"
+
+# Инициализация EAV
+eav = AsyncEAVWithIndex()
