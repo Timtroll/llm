@@ -1,4 +1,5 @@
-# controllers/user.py
+# backend/controllers/user.py
+
 from fastapi import HTTPException
 from datetime import datetime
 from passlib.context import CryptContext

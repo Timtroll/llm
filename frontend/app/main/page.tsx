@@ -28,16 +28,24 @@ export default function Home() {
   const router = useRouter();
 
   const [parameters, setParameters] = useState({
-    n_tokens: 2048,
+    n_tokens: 128,
     temp: 0.7,
     top_p: 0.9,
     top_k: 40,
     repeat_penalty: 1.1,
     seed: 42,
-    model: 'model-q4',
+    model: '',
   });
+  const TitleParameters = {
+    title_n_tokens: 'Максимальное количество токенов (единиц текста), которые модель может обработать за один раз. Один токен обычно равен одному слову или части слова. В контексте этой модели, 2048 токенов — это ограничение на количество входных и выходных токенов в одном запросе.',
+    title_temp: 'Параметр, который влияет на степень случайности при генерации текста. Температура 1.0 означает более случайный и разнообразный выбор слов. Температура меньше 1.0 (например, 0.7) делает текст более детерминированным и предсказуемым, то есть модель будет чаще выбирать более вероятные продолжения текста. Температура выше 1.0 делает текст более креативным и разнообразным, но может приводить к менее логичному результату.',
+    title_top_p: 'Параметр для сэмплинга с вероятностью (также известен как "nucleus sampling"). Модель выбирает из топовых вероятностей, суммарно составляющих p (в данном случае 0.9). Например, если top p = 0.9, то модель будет выбирать слова из множества с вероятностью 90% для текущего шага, что позволяет моделям генерировать более разнообразный текст, ограничивая выбор только наиболее вероятных слов.',
+    title_top_k: 'Параметр, ограничивающий количество слов (токенов), из которых модель будет выбирать для следующего шага генерации. "top k" = 40 означает, что модель будет выбирать только из 40 наиболее вероятных токенов на каждом шаге. Меньшее значение уменьшает разнообразие, делая модель более детерминированной, а большее значение позволяет генерировать более креативные и разнообразные тексты.',
+    title_repeat_penalty: 'Штраф за повторяющиеся фразы или слова. "1.1" означает, что модель будет склонна избегать повторов. Чем выше значение, тем сильнее штраф за повторение. Например, если модель повторяет одно и то же слово или фразу, этот параметр уменьшает вероятность такого повтора.',
+    title_seed: 'Начальное значение для генерации случайных чисел. Если задать фиксированное значение для seed, то каждый раз при одинаковых условиях и с тем же seed модель будет генерировать одинаковые результаты. Это полезно, если требуется воспроизвести конкретный результат генерации в будущем. Если не указывать seed, то каждый запуск будет давать разные результаты.',
+  };
 
-  const availableModels = ['model-q4', 'gpt-4o', 'llama-7b'];
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -59,8 +67,60 @@ export default function Home() {
     }
   }, [router]);
 
+  useEffect(() => {
+    const fetchModels = async () => {
+      if (!auth) return;
+      try {
+        const response = await fetch('https://llm.lmt.su/api/models', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${auth.token}`,
+          },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          const models = Object.keys(data);
+          setAvailableModels(models);
+          setParameters({
+            n_tokens: data[models[0]]?.default_tokens || 128,
+            temp: data[models[0]]?.default_temp || 0.7,
+            top_p: 0.9,
+            top_k: 40,
+            repeat_penalty: 1.1,
+            seed: 42,
+            model: models[0] || '',
+          });
+        } else {
+          console.error('Failed to fetch models:', data.error);
+          setParameters({
+            n_tokens: 128,
+            temp: 0.7,
+            top_p: 0.9,
+            top_k: 40,
+            repeat_penalty: 1.1,
+            seed: 42,
+            model: '',
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching models:', err);
+        setParameters({
+          n_tokens: 128,
+          temp: 0.7,
+          top_p: 0.9,
+          top_k: 40,
+          repeat_penalty: 1.1,
+          seed: 42,
+          model: '',
+        });
+      }
+    };
+    fetchModels();
+  }, [auth]);
+
   const sendMessage = async (reset = false) => {
-    if (!input.trim() || !auth) return;
+    if (!input.trim() || !auth || !parameters.model) return;
     const prompt = input.trim();
 
     setMessages((prev) => [...prev, { role: 'user', content: prompt }]);
@@ -130,7 +190,7 @@ export default function Home() {
     });
   }, [messages, isLoading]);
 
-  if (!auth) {
+  if (!auth || !parameters.model) {
     return <div>Проверяем авторизацию…</div>;
   }
 
@@ -174,9 +234,14 @@ export default function Home() {
             .filter(([key]) => key !== 'model')
             .map(([key, value]) => (
               <div key={key} className="space-y-2">
-                <label className="block text-sm font-medium text-gray-600 capitalize">
-                  {key.replace('_', ' ')}
-                </label>
+                <div className="relative group">
+                  <label className="block text-sm font-medium text-gray-600 capitalize">
+                    {key.replace('_', ' ')}
+                  </label>
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 mt-1 z-10 w-64">
+                    {TitleParameters[`title_${key}`]}
+                  </div>
+                </div>
                 <input
                   type="number"
                   value={value}
@@ -206,7 +271,16 @@ export default function Home() {
       <div className="flex-1 flex flex-col min-h-0">
         <header className="px-6 py-4 border-b border-gray-300 bg-gray-100 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <span className="text-yellow-500">☭</span> LLM Chat
+            <svg id="svg10" height="33" width="33" viewBox="0 0 600 600" version="1.1">
+              <g transform="matrix(3.9572752,0,0,3.9469524,-484.68108,-434.93624)" id="g2900" style={{ fill: '#EAB308', fillOpacity: 1 }}>
+                <path style={{ fill: '#EAB308', fillOpacity: 1, stroke: 'none', strokeWidth: 0.48919073, strokeMiterlimit: 4, strokeDasharray: 'none', strokeDashoffset: 0, strokeOpacity: 1 }} 
+                  d="m 137.43744,171.69421 18.86296,18.9937 17.78834,-17.66589 c 27.05847,29.021 55.43807,56.99501 82.28704,86.12782 4.03444,4.06233 10.59815,4.085 14.66056,0.0506 4.06232,-4.03445 4.08499,-10.59815 0.0506,-14.66056 -28.81871,-27.1901 -57.72545,-54.60143 -86.55328,-81.89095 l 23.96499,-23.80003 -33.34026,-4.61605 z" 
+                  id="rect4165-6" />
+                <path style={{ fill: '#EAB308', fillOpacity: 1, stroke: 'none', strokeWidth: 0.50003481, strokeMiterlimit: 4, strokeDasharray: 'none', strokeDashoffset: 0, strokeOpacity: 1 }} 
+                  d="m 198.2887,110.1955 c 15.51743,8.7394 27.29872,21.28122 34.2484,34.3924 7.04394,13.28902 10.13959,27.16218 10.20325,38.25433 0.13054,22.74374 -18.43771,41.18184 -41.18183,41.18184 -12.13597,0 -23.04607,-5.24868 -30.58302,-13.60085 l -4.16863,3.51033 c -0.70999,-0.27231 -1.46387,-0.41221 -2.22429,-0.41276 -1.82948,1.9e-4 -3.56621,0.80531 -4.74859,2.20136 -2.97368,0.38896 -5.46251,2.44529 -6.40534,5.29224 -3.13486,6.28843 -8.63524,11.21997 -15.29104,13.4776 -0.0637,0.0216 -0.11992,0.05 -0.1758,0.0783 -3.07749,1.12758 -6.16259,3.1643 -8.78919,5.80245 -5.19155,5.23656 -7.72858,11.93658 -6.30024,16.63822 -0.14098,0.40857 -0.21361,0.83759 -0.21498,1.26979 1.5e-4,2.17082 1.75991,3.93058 3.93073,3.93073 0.54341,-0.002 1.08053,-0.11639 1.57745,-0.33632 4.69369,1.05881 11.06885,-1.54582 16.05444,-6.55917 2.82624,-2.85072 4.94356,-6.22349 5.98303,-9.53062 2.31696,-6.62278 7.29699,-12.01856 13.62281,-15.05312 0.15105,-0.0725 0.27303,-0.14714 0.38218,-0.22358 2.12082,-1.01408 3.67251,-2.92895 4.225,-5.2139 9.70222,11.44481 24.25255,18.75299 40.51876,19.13577 29.83352,0.70205 52.13299,-21.25802 53.16414,-52.83642 0.51894,-15.89259 -5.62993,-36.3847 -19.6412,-53.19089 -10.70835,-12.84441 -26.40987,-23.50795 -44.18699,-28.20777 z" 
+                  id="path4179-3"/>
+              </g>
+            </svg> LLM Chat
           </h1>
           <div className="flex gap-2">
             <button
@@ -261,12 +335,12 @@ export default function Home() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Введите ваш запрос..."
-              className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm md:text-base outline-none focus:ring-2 focus:ring-gray-400 transition-all"
+              className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm md:text-base outline-none focus:ring-2 focus:ring-gray-400 transition-all"
             />
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-3 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2"
+              className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2"
             >
               <Send size={18} />
               <span className="hidden md:inline">Отправить</span>
@@ -277,47 +351,3 @@ export default function Home() {
     </div>
   );
 }
-
-// "use client";
-
-// import { useEffect, useState } from "react";
-// import { useRouter } from "next/navigation";
-
-// type AuthData = {
-//   token: string;
-//   username: string;
-// };
-
-// const MainPage = () => {
-//   const [auth, setAuth] = useState<AuthData | null>(null);
-//   const router = useRouter();
-
-//   useEffect(() => {
-//     const storedToken = localStorage.getItem("authToken");
-//     if (!storedToken) {
-//       router.push("/login");
-//     } else {
-//       try {
-//         const parsed: AuthData = JSON.parse(storedToken);
-//         setAuth(parsed);
-//       } catch (e) {
-//         console.error("Invalid auth token in localStorage", e);
-//         router.push("/login");
-//       }
-//     }
-//   }, [router]);
-
-//   if (!auth) {
-//     return <div>Проверяем авторизацию…</div>;
-//   }
-
-//   return (
-//     <div>
-//       <h1>Главная страница</h1>
-//       <p>Добро пожаловать, <strong>{auth.username}</strong>!</p>
-//       <p>Токен: <code>{auth.token}</code></p>
-//     </div>
-//   );
-// };
-
-// export default MainPage;

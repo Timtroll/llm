@@ -1,9 +1,12 @@
-# import asyncio
+# backend/async_eav.py
+
 from typing import Dict, Any, List
 import redis.asyncio as redis
 
+from settings import settings
+
 class AsyncEAVWithIndex:
-    def __init__(self, redis_url: str = "redis://redis:6379/0"):
+    def __init__(self, redis_url: str = settings.redis_url):
         """
         Асинхронный клиент для работы с EAV-моделью и индексами в Redis.
 
@@ -67,8 +70,8 @@ class AsyncEAVWithIndex:
         # if old_value is not None and old_value != value:
         #     pipeline.srem(self._index_key(attribute, old_value), entity_id)
 
-        pipeline.sadd(self._index_key(attribute, value), entity_id)
-        data=await pipeline.execute()
+        # pipeline.sadd(self._index_key(attribute, value), entity_id)
+        data = await pipeline.execute()
 
 
     async def get_all_attributes(self, entity_id: str) -> Dict[str, Any]:
@@ -114,8 +117,8 @@ class AsyncEAVWithIndex:
         pipeline = self.client.pipeline()
         pipeline.hdel(key, attribute)
 
-        if old_value is not None:
-            pipeline.srem(self._index_key(attribute, old_value), entity_id)
+        # if old_value is not None:
+        #     pipeline.srem(self._index_key(attribute, old_value), entity_id)
 
         await pipeline.execute()
 
@@ -133,7 +136,8 @@ class AsyncEAVWithIndex:
 
         pipeline = self.client.pipeline()
         for attr, val in attributes.items():
-            pipeline.srem(self._index_key(attr, val), entity_id)
+            # pipeline.srem(self._index_key(attr, val), entity_id)
+            pass
 
         pipeline.delete(key)
         await pipeline.execute()
@@ -150,14 +154,15 @@ class AsyncEAVWithIndex:
         Пример:
             users = await eav.find_entities_by_attribute("status", "active")
         """
-        members = await self.client.smembers(self._index_key(attribute, value))
-        return list(members)
+        # members = await self.client.smembers(self._index_key(attribute, value))
+        # return list(members)
+        return []
 
-    def _index_key(self, attribute: str, value: Any) -> str:
-        """
-        Внутренний метод: формирование ключа индекса по атрибуту и значению.
-        """
-        return f"index:{attribute}:{value}"
+    # def _index_key(self, attribute: str, value: Any) -> str:
+    #     """
+    #     Внутренний метод: формирование ключа индекса по атрибуту и значению.
+    #     """
+    #     return f"index:{attribute}:{value}"
 
 # Инициализация EAV
 eav = AsyncEAVWithIndex()
