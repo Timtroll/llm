@@ -159,10 +159,10 @@ status_containers() {
     fi
 
     for service in $services; do
-        container="llm-$service"
+        container="$service"
 
         # Получаем статус через docker inspect
-        status=$(docker inspect --format='{{.State.Running}}' "$container" 2>/dev/null)
+        status=$(docker inspect --format='{{.State.Running}}' "llm-$container" 2>/dev/null)
 
         if [[ "$status" == "true" ]]; then
             echo "✅ $container — работает"
@@ -215,7 +215,7 @@ start_service() {
     log_stage "Запуск сервиса $service"
     echo "Запуск сервиса $service... Комана для ручного запуска:"
     echo "docker compose up --build \"$service\""
-    docker docker compose up --build -d "$service"
+    docker compose up --build -d "$service"
     if [ $? -ne 0 ]; then
         echo "Ошибка при запуске сервиса $service"
         exit 1

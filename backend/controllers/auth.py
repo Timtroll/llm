@@ -8,7 +8,8 @@ from security import pwd_context, create_access_token
 from models import LoginRequest
 
 from settings import settings
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+ACCESS_TOKEN_EXPIRE = settings.access_token_expire
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire / 60
 
 async def login_user(request: LoginRequest) -> dict:
     user_id = f"user:{request.username}"
@@ -23,10 +24,15 @@ async def login_user(request: LoginRequest) -> dict:
 
     token = create_access_token({"sub": request.username, "role": role})
     await eav.set_attribute(f"token:{token}", "user", request.username)
+    # await eav.set_attribute(
+    #     f"token:{token}",
+    #     "expires",
+    #     (datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).isoformat()
+    # )
     await eav.set_attribute(
         f"token:{token}",
-        "expires",
-        (datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).isoformat()
+        "expires", (datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).isoformat(),
+        ttl=ACCESS_TOKEN_EXPIRE
     )
     
     return {

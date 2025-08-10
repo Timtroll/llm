@@ -1,6 +1,6 @@
 # backend/async_eav.py
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import redis.asyncio as redis
 
 from settings import settings
@@ -13,6 +13,7 @@ class AsyncEAVWithIndex:
         :param redis_url: строка подключения к Redis
         """
         self.client = redis.from_url(redis_url, decode_responses=True)
+
 
     async def create_entity(self, entity_id: str, attributes: Dict[str, Any]):
         """
@@ -50,28 +51,33 @@ class AsyncEAVWithIndex:
         for attr, val in attributes.items():
             await self.set_attribute(entity_id, attr, val)
 
-    async def set_attribute(self, entity_id: str, attribute: str, value: Any):
+
+    async def set_attribute(self, entity_id: str, attribute: str, value: Any, ttl: Optional[int] = None):
         """
-        Установить одно значение атрибута сущности и обновить индекс.
+        Установить одно значение атрибута сущности, обновить индекс и, при необходимости, установить время жизни.
 
         :param entity_id: уникальный идентификатор сущности
         :param attribute: имя атрибута
         :param value: значение атрибута
+        :param ttl: время жизни ключа в секундах (опционально), если None, то без ограничения
+        :return: результат выполнения команды
 
         Пример:
+            # Установить атрибут без TTL
             await eav.set_attribute("user:123", "status", "active")
+            # Установить атрибут с TTL 3600 секунд (1 час)
+            await eav.set_attribute("user:123", "status", "active", ttl=3600)
         """
         key = f"{entity_id}"
-        old_value = await self.client.hget(key, attribute)
-
         pipeline = self.client.pipeline()
         pipeline.hset(key, attribute, value)
 
-        # if old_value is not None and old_value != value:
-        #     pipeline.srem(self._index_key(attribute, old_value), entity_id)
+        # Устанавливаем TTL, если он указан
+        if ttl is not None:
+            pipeline.expire(key, ttl)
 
-        # pipeline.sadd(self._index_key(attribute, value), entity_id)
         data = await pipeline.execute()
+        return data
 
 
     async def get_all_attributes(self, entity_id: str) -> Dict[str, Any]:
@@ -87,6 +93,7 @@ class AsyncEAVWithIndex:
         key = f"{entity_id}"
         return await self.client.hgetall(key)
 
+
     async def get_attribute(self, entity_id: str, attribute: str) -> Any:
         """
         Получить значение одного атрибута сущности.
@@ -100,6 +107,7 @@ class AsyncEAVWithIndex:
         """
         key = f"{entity_id}"
         return await self.client.hget(key, attribute)
+
 
     async def delete_attribute(self, entity_id: str, attribute: str):
         """
@@ -122,6 +130,7 @@ class AsyncEAVWithIndex:
 
         await pipeline.execute()
 
+
     async def delete_entity(self, entity_id: str):
         """
         Удалить всю сущность и очистить все её индексы.
@@ -141,6 +150,7 @@ class AsyncEAVWithIndex:
 
         pipeline.delete(key)
         await pipeline.execute()
+
 
     async def find_entities_by_attribute(self, attribute: str, value: Any) -> List[str]:
         """

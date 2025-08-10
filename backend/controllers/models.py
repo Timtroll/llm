@@ -13,12 +13,16 @@ from async_eav import eav
 
 logger = logging.getLogger(__name__)
 
-async def list_models() -> Dict[str, Any]:
+async def list_models(current_user: dict ) -> Dict[str, Any]:
     """
     Получает список моделей из директории и синхронизирует их с EAV.
     Если модель отсутствует в EAV, добавляет её. Если модель в EAV отсутствует на диске, удаляет из EAV.
     Возвращает список моделей из EAV, если они синхронизированы, или из директории, если произошли изменения.
     """
+    logger.info('---list_models---')
+    print('---list_models---')
+    print(current_user)
+    print('---list_models---')
     model_dir = "/llama.cpp/models/"
     # eav = AsyncEAVWithIndex()
     try:

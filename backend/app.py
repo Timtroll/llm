@@ -12,7 +12,7 @@ from controllers.auth import login_user
 from controllers.users import list_users
 from controllers.user import get_user, create_user, update_user, delete_user
 from controllers.models import list_models
-from controllers.generate import generate_text
+from controllers.generate import generate_text, clear_history
 from models import CreateUserRequest, LoginRequest, RegisterRequest, UpdateUserRequest, DeleteUserRequest
 from utils import health
 
@@ -105,10 +105,19 @@ async def login(request: LoginRequest):
     return await login_user(request)
 
 
+# @app.post("/api/user/clear")
+# async def clear(request: LoginRequest):
+#     return await clear_history(request)
+@app.post("/api/user/clear")
+async def clear(current_user: dict = Depends(get_current_user)):
+    return await clear_history(current_user)
+
+
 # список моделей, синхронизированных с EAV
 @app.get("/api/models")
-async def models_list():
-    return await list_models()
+async def models_list(current_user: dict = Depends(get_current_user)):
+    return await list_models(current_user)
+
 
 @app.post("/api/generate")
 async def test_generate(

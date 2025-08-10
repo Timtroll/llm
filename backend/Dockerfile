@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     g++ \
     libopenblas-dev \
+    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 # Установка llama.cpp с фиксацией коммита

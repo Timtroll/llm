@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire / 60
 
 # OAuth2 схема для извлечения токена
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/user/login")

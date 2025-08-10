@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - llm_llm-backend
     ports:
@@ -25,6 +27,8 @@ services:
       - "5555:5555"
     volumes:
       - ${WORK_DIR:-/home/troll/sites/llm}:/llama.cpp/models
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/api/health"]
       interval: 30s
@@ -60,7 +64,9 @@ services:
       - JWT_SECRET=${JWT_SECRET}
     volumes:
       - ./frontend:/app
-      - /app/node_modules # чтобы не затирать node_modules хостовой папкой
+      - /app/node_modules
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     command: npm run dev
     depends_on:
       llm:
@@ -82,7 +88,6 @@ services:
 
 networks:
   llm_llm-backend:
-    # internal: true # чтобы скрыть сеть
   default:
 
 volumes:

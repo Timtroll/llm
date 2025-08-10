@@ -17,3 +17,5 @@ aioredis
 passlib>=1.7.4  # Библиотека для хеширования паролей с использованием bcrypt
 bcrypt>=3.2.0
 argon2-cffi>=21.3.0
+
+# llama-cpp-python  # Библиотека для работы с llama.cpp

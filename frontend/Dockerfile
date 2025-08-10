@@ -41,4 +41,4 @@ ENV PORT=5000
 EXPOSE 5000
 
 # Запускаем приложение
-CMD ["npx", "next", "start", "-p", "5000"]
+CMD ["npx", "next", "dev", "-p", "5000"]
