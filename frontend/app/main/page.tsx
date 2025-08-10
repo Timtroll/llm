@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { marked } from 'marked';
 const Settings = dynamic(() => import('lucide-react').then((mod) => mod.Settings), { ssr: false });
 const Send = dynamic(() => import('lucide-react').then((mod) => mod.Send), { ssr: false });
 const X = dynamic(() => import('lucide-react').then((mod) => mod.X), { ssr: false });
@@ -381,30 +382,44 @@ export default function Home() {
           </div>
         </header>
         <div className="flex-1 flex min-h-0">
-          <main className="flex-1 overflow-y-auto p-6" ref={chatRef}>
-            <div className="max-w-3xl mx-auto space-y-4">
-              {messages.length === 0 && (
-                <div className="text-center text-gray-500 py-10">
-                  <p className="text-lg">Начните чат, отправив сообщение!</p>
-                </div>
-              )}
-              {messages.map((msg, idx) => (
+        <main className="flex-1 overflow-y-auto p-6" ref={chatRef}>
+          <div className="max-w-3xl mx-auto space-y-4">
+            {messages.length === 0 && (
+              <div className="text-center text-gray-500 py-10">
+                <p className="text-lg">Начните чат, отправив сообщение!</p>
+              </div>
+            )}
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-xl max-w-[80%] ${
+                  msg.role === 'user' ? 'bg-white-400 ml-auto' : 'bg-gray-200 mr-auto'
+                } shadow`}
+              >
                 <div
-                  key={idx}
-                  className={`p-4 rounded-xl max-w-[80%] ${
-                    msg.role === 'user' ? 'bg-gray-400 ml-auto' : 'bg-gray-200 mr-auto'
-                  } shadow`}
-                >
-                  <p className="whitespace-pre-wrap text-sm md:text-base">{msg.content}</p>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="p-4 rounded-xl bg-gray-200 max-w-[80%] mr-auto animate-pulse">
-                  <p className="text-gray-500">...</p>
-                </div>
-              )}
-            </div>
-          </main>
+                  className="text-sm md:text-base prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{
+                    __html: marked(msg.content, {
+                      renderer: (() => {
+                        const renderer = new marked.Renderer();
+                        renderer.code = ({ text }) =>
+                          `<pre class="bg-gray-800 text-white p-2 rounded-md my-2"><code>${text}</code></pre>`;
+                        renderer.text = ({ text }) =>
+                          `<span class="text-xs md:text-sm">${text}</span>`;
+                        return renderer;
+                      })(),
+                    }),
+                  }}
+                />
+              </div>
+            ))}
+            {isLoading && (
+              <div className="p-4 rounded-xl bg-gray-200 max-w-[80%] mr-auto animate-pulse">
+                <p className="text-gray-500">...</p>
+              </div>
+            )}
+          </div>
+        </main>
         </div>
         <div className="border-t border-gray-300 bg-gray-100 p-4">
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-3">

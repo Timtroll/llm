@@ -1,6 +1,6 @@
 {
   "name": "my-next-app",
-  "updates": "1.0.0",
+  "version": "1.0.0",
   "scripts": {
     "build": "next build",
     "start": "next start",
@@ -11,7 +11,7 @@
     "next": "^15.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.367.0"
+    "marked": "^14.1.0"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",

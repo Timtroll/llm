@@ -1,44 +1,47 @@
-# Стадия 1: билд
+# 📦 Stage 1: Build
 FROM node:20-alpine AS builder
 
 # Обновляем npm
-RUN npm install -g npm@11.4.2
+# RUN npm install -g npm@11.4.2
 
 WORKDIR /app
 
-# Копируем только файлы зависимостей для кэширования
-COPY package.json package-lock.json* ./
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json ./
 
-# Устанавливаем все зависимости (и dev, и prod)
+# Install dependencies
 RUN npm ci
 
-# Копируем исходный код
+# Copy all source files
 COPY . .
 
-# Сборка проекта
+# Build the app
 RUN npm run build
 
-# Стадия 2: продакшн
+
+# 🚀 Stage 2: Runner for dev and prod
 FROM node:20-alpine AS runner
 
-# Добавим curl
+# Install curl
 RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Копируем только необходимые файлы из builder
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/tailwind.config.js ./tailwind.config.js
-COPY --from=builder /app/postcss.config.js ./postcss.config.js
+# Copy built app from builder
+# COPY --from=builder /app/.next ./.next
+# COPY --from=builder /app/node_modules ./node_modules
+# COPY --from=builder /app/package.json ./package.json
+# COPY --from=builder /app/public ./public
+# COPY --from=builder /app/tailwind.config.js ./tailwind.config.js
+# COPY --from=builder /app/postcss.config.js ./postcss.config.js
+COPY --from=builder /app /app
 
-# Устанавливаем переменные окружения
+# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=5000
 
 EXPOSE 5000
 
-# Запускаем приложение
-CMD ["npx", "next", "dev", "-p", "5000"]
+# Start the app
+# CMD ["npx", "next", "dev", "-p", "5000"]
+CMD ["npm", "start"]

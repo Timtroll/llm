@@ -1,27 +1,42 @@
 FROM ubuntu:22.04
 
-# Установка зависимостей с очисткой кеша в одном слое
-RUN apt-get update && apt-get install -y \
-    curl \
-    build-essential \
-    cmake \
-    git \
-    python3 \
-    python3-pip \
-    g++ \
-    libopenblas-dev \
-    ninja-build \
+# Установка зависимостей + Vulkan
+RUN apt update && \
+    apt install -y \
+        curl \
+        build-essential \
+        cmake \
+        git \
+        python3 \
+        python3-pip \
+        g++ \
+        libopenblas-dev \
+        ninja-build \
+        software-properties-common \
+        wget \
+    && add-apt-repository universe \
+    && apt update \
+    && apt-get install -y \
+        vulkan-tools \
+        mesa-vulkan-drivers \
+        libvulkan-dev \
+        libvulkan1 \
+        vulkan-validationlayers \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка llama.cpp с фиксацией коммита
+# Установка llama.cpp с поддержкой VULKAN
 RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
     cd /llama.cpp && \
     git checkout 576c82ed && \
     mkdir build && cd build && \
-    cmake .. -DLLAMA_CURL=OFF && \
+    cmake .. -DLLAMA_VULKAN=ON -DLLAMA_CURL=OFF && \
     make -j$(nproc)
 
-# Создание директории для моделей
+# Проверка: доступен ли GPU (для отладки, можно убрать в продакшене)
+RUN echo "=== Проверка Vulkan ===" && \
+    vulkaninfo | grep "GPU id" || echo "Vulkan установлен, но GPU не найден (нормально в билде)"
+
+# Директория для моделей
 RUN mkdir -p /llama.cpp/models
 
 # Проверка наличия моделей (опционально)
@@ -29,22 +44,13 @@ RUN echo "Проверка директории для моделей (ожид�
     ls -lh /llama.cpp/models/ || echo "Модели будут доступны после монтирования volume"
 
 # Копирование приложения
-# COPY app.py /app/
-# COPY async_eav.py /app/
-# COPY models.py /app/
-# COPY utils.py /app/
-# COPY test_async_eav.py /app/
-# COPY requirements.txt /app/
-# COPY controllers/ /app/
 COPY . /app/
-
-# Рабочая директория
 WORKDIR /app
 
-# Установка Python-библиотек
-RUN pip3 install -r /app/requirements.txt
+# Установка Python-зависимостей
+RUN pip3 install -r requirements.txt
 
-# Порт для FastAPI
+# Порт
 EXPOSE 5555
 
 # Healthcheck для мониторинга FastAPI

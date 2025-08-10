@@ -87,9 +87,42 @@ def find_executable() -> Optional[str]:
     return next((p for p in possible_paths if os.path.isfile(p)), None)
 
 
+# def build_command(main_path: str, model_config: Dict[str, Any], prompt_text: str, params: Dict) -> List[str]:
+#     """
+#     Формирует команду для запуска модели.
+    
+#     Args:
+#         main_path: Путь к исполняемому файлу.
+#         model_config: Конфигурация модели.
+#         prompt_text: Текст prompt'а.
+#         params: Параметры генерации.
+    
+#     Returns:
+#         Список аргументов команды.
+#     """
+#     command = [
+#         main_path,
+#         "-m", model_config["path"],
+#         "-p", prompt_text,
+#         "-n", str(params.get("n_tokens", model_config.get("default_tokens", 512))),
+#         "--temp", str(params.get("temperature", model_config.get("default_temp", 0.7))),
+#         "-cnv"
+#     ]
+#     optional_params = [
+#         ("top_p", "--top-p"),
+#         ("top_k", "--top-k"),
+#         ("repeat_penalty", "--repeat-penalty"),
+#         ("seed", "--seed")
+#     ]
+#     for param, flag in optional_params:
+#         if params.get(param) is not None:
+#             command.extend([flag, str(params[param])])
+    
+#     return command
+
 def build_command(main_path: str, model_config: Dict[str, Any], prompt_text: str, params: Dict) -> List[str]:
     """
-    Формирует команду для запуска модели.
+    Формирует команду для запуска модели с максимальным использованием ресурсов.
     
     Args:
         main_path: Путь к исполняемому файлу.
@@ -106,13 +139,38 @@ def build_command(main_path: str, model_config: Dict[str, Any], prompt_text: str
         "-p", prompt_text,
         "-n", str(params.get("n_tokens", model_config.get("default_tokens", 512))),
         "--temp", str(params.get("temperature", model_config.get("default_temp", 0.7))),
-        "-cnv"
+        "-cnv",  # без вывода прогресс-бара
+        "--no-mmap",  # отключить mmap, если много RAM и нужна скорость
+        # "--no_mul_mat_q",  # ускоряет вычисления (если поддерживается)
+        "--rope-scaling", "yarn",  # если модель поддерживает длинные контексты
+        "--rope-scale", "1.0",  # или больше, если нужно расширить контекст
     ]
+
+    # === CPU: используем ВСЕ ядра ===
+    import multiprocessing
+    n_threads = params.get("n_threads", multiprocessing.cpu_count())
+    command.extend(["-t", str(n_threads)])  # максимальное число потоков CPU
+
+    # === GPU: если доступен Vulkan/CUDA/Metal ===
+    if params.get("gpu_layers", 0) > 0:
+        command.extend(["-ngl", str(params["gpu_layers"])])  # offload слоёв на GPU
+        # command.append("--gpu-split")  # если несколько GPU
+        # Пример: --gpu-split 45,45 (для двух GPU)
+
+    # === Контекст: используем максимальный размер ===
+    ctx_size = params.get("ctx_size", model_config.get("max_ctx", 8192))
+    command.extend(["-c", str(ctx_size)])
+
+    # === Опциональные параметры ===
     optional_params = [
         ("top_p", "--top-p"),
         ("top_k", "--top-k"),
         ("repeat_penalty", "--repeat-penalty"),
-        ("seed", "--seed")
+        ("seed", "--seed"),
+        ("typical_p", "--typical-p"),
+        ("mirostat", "--mirostat"),
+        ("mirostat_lr", "--mirostat-lr"),
+        ("mirostat_ent", "--mirostat-ent"),
     ]
     for param, flag in optional_params:
         if params.get(param) is not None:
@@ -156,7 +214,7 @@ def extract_assistant_response(raw_output: str, prompt_text: str) -> str:
         response = "\n".join(filtered_lines).strip()
 
         # Извлекаем ответ модели, начиная с первой строки после prompt'а до '> EOF by user'
-        match = re.search(r".*?assistant\s*(.*?)\s*> EOF by user\s*$", response, re.DOTALL | re.IGNORECASE)
+        match = re.search(r".*assistant\s+(.*?)\s> EOF by user.*$", response, re.DOTALL | re.IGNORECASE)
         if match:
             result = match.group(1).strip()
         else:
